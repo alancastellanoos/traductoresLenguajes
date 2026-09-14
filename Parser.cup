@@ -1,0 +1,162 @@
+/*
+ * INTEGRANTES:
+ * 1. Cancelada de la O Gerardo Alexander
+ * 2. Castellanos Hernández Alan
+ * 3. Lara Jiménez Pablo César
+ * 4. Medina Robledo Brandon Ernie
+ */
+
+import java_cup.runtime.*;
+
+parser code {:
+    public void report_error(String message, Object info) {
+        StringBuilder m = new StringBuilder(">>> ERROR SINT\u00C1CTICO");
+        if (info instanceof java_cup.runtime.Symbol) {
+            java_cup.runtime.Symbol s = ((java_cup.runtime.Symbol) info);
+            if (s.left >= 0) {
+                m.append(" en l\u00EDnea ").append(s.left);
+                if (s.right >= 0)
+                    m.append(", columna ").append(s.right);
+            }
+        }
+        m.append(" : ").append(message);
+        System.err.println(m);
+    }
+
+    public void syntax_error(Symbol cur_token) {
+        report_error("Elemento o token no esperado ('" + cur_token.value + "')", cur_token);
+    }
+:};
+
+/* TERMINALES DE C++ Y ESTRUCTURALES */
+terminal DIRECTIVA, IF, ELSE, WHILE, FOR, DO, RETURN, INT, FLOAT, DOUBLE, CHAR, BOOL, VOID, CLASS, STRUCT, PUBLIC, PRIVATE, USING, NAMESPACE;
+terminal ID, ENTERO, FLOTANTE, CADENA, CARACTER;
+terminal OP_SUMA, OP_RESTA, OP_MULT, OP_DIV, OP_MOD, OP_INC, OP_DEC;
+terminal OP_ASIG, OP_ASIG_SUMA, OP_ASIG_RESTA, OP_ASIG_MULT, OP_ASIG_DIV;
+terminal OP_IGUAL, OP_DISTINTO, OP_MENOR, OP_MAYOR, OP_MENOR_IGUAL, OP_MAYOR_IGUAL;
+terminal OP_AND, OP_OR, OP_NOT, OP_ACCESO;
+terminal PAR_A, PAR_C, LLAVE_A, LLAVE_C, CORCH_A, CORCH_C, PUNTO_COMA, COMA, DOS_PUNTOS;
+terminal ERROR_LEXICO;
+terminal PACKAGE, PUNTO;
+
+/* TERMINALES: PRÁCTICA DE DECLARACIONES (atributos, variables, constantes) */
+terminal FINAL, STRING, BOOLEANO;
+
+/* NO TERMINALES */
+non terminal archivo, paquete, ruta_paquete, importaciones, importacion, clase_principal, cola_errores, error_final;
+non terminal Integer cuerpo_clase;
+non terminal String tipo, lista_identificadores, valor;
+non terminal atributo, constante;
+
+start with archivo;
+
+/* REGLAS GRAMATICALES */
+
+// 1. Estructura general
+archivo ::= paquete importaciones clase_principal cola_errores
+            {: System.out.println("Regla reconocida: <archivo>"); :}
+          | importaciones clase_principal cola_errores
+            {: System.out.println("Regla reconocida: <archivo>"); :}
+;
+
+// 2. Paquete (opcional)
+paquete ::= PACKAGE ID PUNTO_COMA
+            {: System.out.println("Regla reconocida: <paquete> (L\u00EDnea " + ((Symbol)CUP$Parser$stack.peek()).left + ")"); :}
+          | PACKAGE ID PUNTO ruta_paquete PUNTO_COMA
+            {: System.out.println("Regla reconocida: <paquete> (L\u00EDnea " + ((Symbol)CUP$Parser$stack.peek()).left + ")"); :}
+;
+
+ruta_paquete ::= ID PUNTO ruta_paquete
+               | ID
+;
+
+// 3. Importaciones / Directivas
+importaciones ::= importaciones importacion
+                | /* vac\u00EDo */
+;
+
+importacion ::= DIRECTIVA
+            {: System.out.println("Regla reconocida: <importacion> (L\u00EDnea " + ((Symbol)CUP$Parser$stack.peek()).left + ")"); :}
+          | DIRECTIVA OP_MENOR ID OP_MAYOR
+            {: System.out.println("Regla reconocida: <importacion> (L\u00EDnea " + ((Symbol)CUP$Parser$stack.peek()).left + ")"); :}
+          | USING NAMESPACE ID PUNTO_COMA
+            {: System.out.println("Regla reconocida: <importacion> (L\u00EDnea " + ((Symbol)CUP$Parser$stack.peek()).left + ")"); :}
+;
+
+// 4. Clase Principal (se delimita estrictamente antes del opcional ';')
+clase_principal ::= CLASS ID LLAVE_A cuerpo_clase:n LLAVE_C
+            {: System.out.println("Regla reconocida: <clase_principal> (L\u00EDnea " + ((Symbol)CUP$Parser$stack.peek()).left + ")");
+               System.out.println(n != null && n > 0 ? "Regla reconocida: <clase_con_miembros> - Clase con miembros (" + n + ")" : "Regla reconocida: <clase_vacia> - Clase vac\u00EDa"); :}
+          | CLASS ID LLAVE_A cuerpo_clase:n LLAVE_C PUNTO_COMA
+            {: System.out.println("Regla reconocida: <clase_principal> (L\u00EDnea " + ((Symbol)CUP$Parser$stack.peek()).left + ")");
+               System.out.println(n != null && n > 0 ? "Regla reconocida: <clase_con_miembros> - Clase con miembros (" + n + ")" : "Regla reconocida: <clase_vacia> - Clase vac\u00EDa"); :}
+;
+
+// Cuerpo de la clase: secuencia de atributos y constantes (Práctica: declaraciones)
+// El valor sintetizado (Integer) cuenta los miembros reconocidos, para distinguir
+// "clase con miembros" de "clase vacía".
+cuerpo_clase ::= cuerpo_clase:n atributo
+               {: RESULT = n + 1; :}
+               | cuerpo_clase:n constante
+               {: RESULT = n + 1; :}
+               | cuerpo_clase:n error PUNTO_COMA:pc
+               {: System.err.println("Error: Declaraci\u00F3n inv\u00E1lida en l\u00EDnea " + pcleft + " (se ignor\u00F3 hasta ';' y se contin\u00FAa el an\u00E1lisis)");
+                  RESULT = n; :}
+               | /* vac\u00EDo */
+               {: RESULT = 0; :}
+;
+
+// ---- Atributos y variables ----
+// atributo -> tipo lista_identificadores ('=' valor)? ';'
+atributo ::= tipo:t lista_identificadores:ids PUNTO_COMA:pc
+           {: System.out.println("Regla reconocida: <atributo> - Declaraci\u00F3n de variable: tipo=" + t + ", identificador(es)=" + ids + " (l\u00EDnea " + pcleft + ")"); :}
+           | tipo:t lista_identificadores:ids OP_ASIG valor:v PUNTO_COMA:pc
+           {: System.out.println("Regla reconocida: <atributo> - Inicializaci\u00F3n de variable: tipo=" + t + ", identificador(es)=" + ids + ", valor=" + v + " (l\u00EDnea " + pcleft + ")"); :}
+;
+
+// lista_identificadores -> identificador (',' identificador)*
+// La tercera alternativa detecta identificadores consecutivos sin coma y lo reporta como error,
+// intentando recuperarse para seguir reconociendo el resto de la declaración.
+lista_identificadores ::= ID:id
+                         {: RESULT = (String) id; :}
+                         | lista_identificadores:l COMA ID:id
+                         {: RESULT = l + ", " + id; :}
+                         | lista_identificadores:l ID:id
+                         {: System.err.println("Error: Falta ',' en declaraci\u00F3n de variables en l\u00EDnea " + idleft + ", columna " + idright + " (token encontrado: '" + id + "')");
+                            RESULT = l + ", " + id; :}
+;
+
+// ---- Constantes ----
+// constante -> 'final' tipo identificador '=' valor ';'
+constante ::= FINAL tipo:t ID:id OP_ASIG valor:v PUNTO_COMA:pc
+            {: System.out.println("Regla reconocida: <constante> - Declaraci\u00F3n de constante: tipo=" + t + ", identificador=" + id + ", valor=" + v + " (l\u00EDnea " + pcleft + ")"); :}
+            | FINAL tipo ID:id PUNTO_COMA:pc
+            {: System.err.println("Error: Constante debe inicializarse en l\u00EDnea " + pcleft + " (identificador '" + id + "', columna " + idright + ")"); :}
+;
+
+// tipo -> 'int' | 'float' | 'double' | 'char' | 'boolean' | 'String' | identificador
+tipo ::= INT       {: RESULT = "int"; :}
+       | FLOAT     {: RESULT = "float"; :}
+       | DOUBLE    {: RESULT = "double"; :}
+       | CHAR      {: RESULT = "char"; :}
+       | BOOL      {: RESULT = "boolean"; :}
+       | STRING    {: RESULT = "String"; :}
+       | ID:id     {: RESULT = (String) id; :}
+;
+
+// valor -> numero | cadena | caracter | booleano
+valor ::= ENTERO:v    {: RESULT = (String) v; :}
+        | FLOTANTE:v  {: RESULT = (String) v; :}
+        | CADENA:v    {: RESULT = (String) v; :}
+        | CARACTER:v  {: RESULT = (String) v; :}
+        | BOOLEANO:v  {: RESULT = (String) v; :}
+;
+
+
+
+// Tolerancia a errores léxicos o tokens extra al final del archivo
+cola_errores ::= cola_errores error_final
+               | /* vac\u00EDo */
+;
+
+error_final ::= ERROR_LEXICO | ID | ENTERO | FLOTANTE | CADENA | error ;
