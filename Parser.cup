@@ -9,25 +9,60 @@
 import java_cup.runtime.*;
 
 parser code {:
-    public void report_error(String message, Object info) {
-        StringBuilder m = new StringBuilder(">>> ERROR SINT\u00C1CTICO");
-        if (info instanceof java_cup.runtime.Symbol) {
-            java_cup.runtime.Symbol s = ((java_cup.runtime.Symbol) info);
-            if (s.left >= 0) {
-                m.append(" en l\u00EDnea ").append(s.left);
-                if (s.right >= 0)
-                    m.append(", columna ").append(s.right);
-            }
-        }
-        m.append(" : ").append(message);
-        System.err.println(m);
+    public int numErrores = 0;
+    private Symbol anterior, escaneado;
+    @Override public Symbol scan() throws Exception {
+        anterior = escaneado;
+        escaneado = super.scan();
+        return escaneado;
     }
-
-    public void syntax_error(Symbol cur_token) {
-        report_error("Elemento o token no esperado ('" + cur_token.value + "')", cur_token);
+    public void error_en(String causa, int linea, int columna, Object token) {
+        numErrores++;
+        System.out.println("Error sintáctico en línea " + linea + ", columna " + columna
+            + ": " + causa + " (encontrado: '" + token + "').");
+    }
+    @Override public void syntax_error(Symbol s) {
+        String causa = "token inesperado; revise operandos, delimitadores y la estructura";
+        if (s.sym == sym.EOF) causa = "fin inesperado; puede faltar '}' para cerrar un bloque o una sentencia";
+        else if (s.sym == sym.ELSE) causa = "'else' sin 'if' asociado o falta '}' antes de 'else'";
+        else if (s.sym == sym.PAR_C) causa = "condición/expresión incompleta o falta una sección del 'for'";
+        else if (s.sym == sym.LLAVE_A) causa = "se esperaba ')' antes de abrir el bloque";
+        else if (s.sym == sym.DOS_PUNTOS) causa = "se esperaba un valor después de 'case'";
+        if (anterior != null && (anterior.sym == sym.IF || anterior.sym == sym.WHILE
+                || anterior.sym == sym.FOR || anterior.sym == sym.SWITCH) && s.sym != sym.PAR_A)
+            causa = "se esperaba '(' después de '" + anterior.value + "'";
+        error_en(causa, s.left, s.right, s.value);
+    }
+    @Override public void unrecovered_syntax_error(Symbol s) throws Exception {
+        System.out.println("No fue posible recuperar este error; análisis detenido.");
+        throw new Exception("Error sintáctico no recuperable");
+    }
+    @Override protected int error_sync_size() { return 2; }
+    public void error_actual(String causa) {
+        error_en(causa, cur_token.left, cur_token.right, cur_token.value);
+    }
+    public void recuperada(String donde) {
+        System.out.println("Recuperación: " + donde + "; se continúa el análisis.");
+    }
+    public String regla(String nombre, String contenido) {
+        if (!contenido.contains("[ERROR]")) System.out.println("Regla reconocida: " + nombre);
+        return nombre + "\n" + indentar(contenido);
+    }
+    public String control(String nombre, String contenido) {
+        if (!contenido.contains("[ERROR]") &&
+            (contenido.contains("seleccion_") || contenido.contains("ciclo_")))
+            System.out.println("Regla reconocida: estructura_anidada");
+        return regla(nombre, contenido);
+    }
+    private String indentar(String s) {
+        return s.isEmpty() ? "" : "  " + s.replace("\n", "\n  ").stripTrailing() + "\n";
+    }
+    public String bin(String a, String op, String b, String regla) {
+        String s = a + " " + op + " " + b;
+        if (!s.contains("[ERROR]")) System.out.println("Regla reconocida: " + regla + " -> " + s);
+        return s;
     }
 :};
-
 /* TERMINALES DE C++ Y ESTRUCTURALES */
 terminal DIRECTIVA, IF, ELSE, WHILE, FOR, DO, RETURN, INT, FLOAT, DOUBLE, CHAR, BOOL, VOID, CLASS, STRUCT, PUBLIC, PRIVATE, USING, NAMESPACE;
 terminal ID, ENTERO, FLOTANTE, CADENA, CARACTER;
@@ -42,121 +77,121 @@ terminal PACKAGE, PUNTO;
 /* TERMINALES: PRÁCTICA DE DECLARACIONES (atributos, variables, constantes) */
 terminal FINAL, STRING, BOOLEANO;
 
-/* NO TERMINALES */
-non terminal archivo, paquete, ruta_paquete, importaciones, importacion, clase_principal, cola_errores, error_final;
-non terminal Integer cuerpo_clase;
-non terminal String tipo, lista_identificadores, valor;
-non terminal atributo, constante;
+/* TERMINALES: PRÁCTICA DE EXPRESIONES (lectura, escritura y asignaciones) */
+terminal LEER, ESCRIBIR;
 
+
+terminal SWITCH, CASE, DEFAULT, BREAK, CONTINUE, CIN, COUT, SALIDA, ENTRADA;
+non terminal String archivo, paquete, ruta, importaciones, importacion, unidades, unidad, clase, miembros, miembro, tipo, declaracion, nombres, inicializacion, metodo, retorno, bloque, sentencias, sentencia, seleccion, ciclo, switch_stmt, casos, caso, condicion, cabecera_if, cabecera_while, cabecera_switch, cabecera_for, for_inicio, for_cond, for_act, actualizacion, op_asig, lectura, escritura, ids_lectura, ids_entrada, elems_salida, elementos, expresion, log_or, log_and, igualdad, relacion, suma, producto, unario, primario, valor;
 start with archivo;
 
-/* REGLAS GRAMATICALES */
-
-// 1. Estructura general
-archivo ::= paquete importaciones clase_principal cola_errores
-            {: System.out.println("Regla reconocida: <archivo>"); :}
-          | importaciones clase_principal cola_errores
-            {: System.out.println("Regla reconocida: <archivo>"); :}
-;
-
-// 2. Paquete (opcional)
-paquete ::= PACKAGE ID PUNTO_COMA
-            {: System.out.println("Regla reconocida: <paquete> (L\u00EDnea " + ((Symbol)CUP$Parser$stack.peek()).left + ")"); :}
-          | PACKAGE ID PUNTO ruta_paquete PUNTO_COMA
-            {: System.out.println("Regla reconocida: <paquete> (L\u00EDnea " + ((Symbol)CUP$Parser$stack.peek()).left + ")"); :}
-;
-
-ruta_paquete ::= ID PUNTO ruta_paquete
-               | ID
-;
-
-// 3. Importaciones / Directivas
-importaciones ::= importaciones importacion
-                | /* vac\u00EDo */
-;
-
-importacion ::= DIRECTIVA
-            {: System.out.println("Regla reconocida: <importacion> (L\u00EDnea " + ((Symbol)CUP$Parser$stack.peek()).left + ")"); :}
-          | DIRECTIVA OP_MENOR ID OP_MAYOR
-            {: System.out.println("Regla reconocida: <importacion> (L\u00EDnea " + ((Symbol)CUP$Parser$stack.peek()).left + ")"); :}
-          | USING NAMESPACE ID PUNTO_COMA
-            {: System.out.println("Regla reconocida: <importacion> (L\u00EDnea " + ((Symbol)CUP$Parser$stack.peek()).left + ")"); :}
-;
-
-// 4. Clase Principal (se delimita estrictamente antes del opcional ';')
-clase_principal ::= CLASS ID LLAVE_A cuerpo_clase:n LLAVE_C
-            {: System.out.println("Regla reconocida: <clase_principal> (L\u00EDnea " + ((Symbol)CUP$Parser$stack.peek()).left + ")");
-               System.out.println(n != null && n > 0 ? "Regla reconocida: <clase_con_miembros> - Clase con miembros (" + n + ")" : "Regla reconocida: <clase_vacia> - Clase vac\u00EDa"); :}
-          | CLASS ID LLAVE_A cuerpo_clase:n LLAVE_C PUNTO_COMA
-            {: System.out.println("Regla reconocida: <clase_principal> (L\u00EDnea " + ((Symbol)CUP$Parser$stack.peek()).left + ")");
-               System.out.println(n != null && n > 0 ? "Regla reconocida: <clase_con_miembros> - Clase con miembros (" + n + ")" : "Regla reconocida: <clase_vacia> - Clase vac\u00EDa"); :}
-;
-
-// Cuerpo de la clase: secuencia de atributos y constantes (Práctica: declaraciones)
-// El valor sintetizado (Integer) cuenta los miembros reconocidos, para distinguir
-// "clase con miembros" de "clase vacía".
-cuerpo_clase ::= cuerpo_clase:n atributo
-               {: RESULT = n + 1; :}
-               | cuerpo_clase:n constante
-               {: RESULT = n + 1; :}
-               | cuerpo_clase:n error PUNTO_COMA:pc
-               {: System.err.println("Error: Declaraci\u00F3n inv\u00E1lida en l\u00EDnea " + pcleft + " (se ignor\u00F3 hasta ';' y se contin\u00FAa el an\u00E1lisis)");
-                  RESULT = n; :}
-               | /* vac\u00EDo */
-               {: RESULT = 0; :}
-;
-
-// ---- Atributos y variables ----
-// atributo -> tipo lista_identificadores ('=' valor)? ';'
-atributo ::= tipo:t lista_identificadores:ids PUNTO_COMA:pc
-           {: System.out.println("Regla reconocida: <atributo> - Declaraci\u00F3n de variable: tipo=" + t + ", identificador(es)=" + ids + " (l\u00EDnea " + pcleft + ")"); :}
-           | tipo:t lista_identificadores:ids OP_ASIG valor:v PUNTO_COMA:pc
-           {: System.out.println("Regla reconocida: <atributo> - Inicializaci\u00F3n de variable: tipo=" + t + ", identificador(es)=" + ids + ", valor=" + v + " (l\u00EDnea " + pcleft + ")"); :}
-;
-
-// lista_identificadores -> identificador (',' identificador)*
-// La tercera alternativa detecta identificadores consecutivos sin coma y lo reporta como error,
-// intentando recuperarse para seguir reconociendo el resto de la declaración.
-lista_identificadores ::= ID:id
-                         {: RESULT = (String) id; :}
-                         | lista_identificadores:l COMA ID:id
-                         {: RESULT = l + ", " + id; :}
-                         | lista_identificadores:l ID:id
-                         {: System.err.println("Error: Falta ',' en declaraci\u00F3n de variables en l\u00EDnea " + idleft + ", columna " + idright + " (token encontrado: '" + id + "')");
-                            RESULT = l + ", " + id; :}
-;
-
-// ---- Constantes ----
-// constante -> 'final' tipo identificador '=' valor ';'
-constante ::= FINAL tipo:t ID:id OP_ASIG valor:v PUNTO_COMA:pc
-            {: System.out.println("Regla reconocida: <constante> - Declaraci\u00F3n de constante: tipo=" + t + ", identificador=" + id + ", valor=" + v + " (l\u00EDnea " + pcleft + ")"); :}
-            | FINAL tipo ID:id PUNTO_COMA:pc
-            {: System.err.println("Error: Constante debe inicializarse en l\u00EDnea " + pcleft + " (identificador '" + id + "', columna " + idright + ")"); :}
-;
-
-// tipo -> 'int' | 'float' | 'double' | 'char' | 'boolean' | 'String' | identificador
-tipo ::= INT       {: RESULT = "int"; :}
-       | FLOAT     {: RESULT = "float"; :}
-       | DOUBLE    {: RESULT = "double"; :}
-       | CHAR      {: RESULT = "char"; :}
-       | BOOL      {: RESULT = "boolean"; :}
-       | STRING    {: RESULT = "String"; :}
-       | ID:id     {: RESULT = (String) id; :}
-;
-
-// valor -> numero | cadena | caracter | booleano
-valor ::= ENTERO:v    {: RESULT = (String) v; :}
-        | FLOTANTE:v  {: RESULT = (String) v; :}
-        | CADENA:v    {: RESULT = (String) v; :}
-        | CARACTER:v  {: RESULT = (String) v; :}
-        | BOOLEANO:v  {: RESULT = (String) v; :}
-;
-
-
-
-// Tolerancia a errores léxicos o tokens extra al final del archivo
-cola_errores ::= cola_errores error_final
-               | /* vac\u00EDo */
-;
-
-error_final ::= ERROR_LEXICO | ID | ENTERO | FLOTANTE | CADENA | error ;
+// Se conservan las extensiones de las actividades previas: package, final,
+// String, boolean, leer y escribir. Las pruebas nuevas usan palabras de C++.
+archivo ::= paquete importaciones unidades:u {: RESULT=parser.regla("archivo",u); :};
+paquete ::= PACKAGE ruta PUNTO_COMA {: RESULT=""; :} | {: RESULT=""; :};
+ruta ::= ID:i {: RESULT=i.toString(); :} | ruta:r PUNTO ID:i {: RESULT=r+"."+i; :};
+importaciones ::= importaciones importacion | ;
+importacion ::= DIRECTIVA {: parser.regla("importacion",""); :}
+ | USING NAMESPACE ID PUNTO_COMA {: parser.regla("importacion",""); :};
+unidades ::= unidades:a unidad:b {: RESULT=a+b; :} | unidad:a {: RESULT=a; :};
+unidad ::= clase:a {: RESULT=a; :} | metodo:a {: RESULT=a; :};
+clase ::= CLASS ID:i LLAVE_A miembros:m LLAVE_C {: RESULT=parser.regla("clase "+i,m); :}
+ | CLASS ID:i LLAVE_A miembros:m LLAVE_C PUNTO_COMA {: RESULT=parser.regla("clase "+i,m); :};
+miembros ::= miembros:a miembro:b {: RESULT=a+b; :} | {: RESULT=""; :};
+miembro ::= declaracion:d {: RESULT=d; :} | metodo:m {: RESULT=m; :}
+ | PUBLIC DOS_PUNTOS {: RESULT=""; :} | PRIVATE DOS_PUNTOS {: RESULT=""; :}
+ | error PUNTO_COMA {: parser.recuperada("miembro hasta ';'"); RESULT="[ERROR]\n"; :};
+tipo ::= INT {: RESULT="int"; :} | FLOAT {: RESULT="float"; :}
+ | DOUBLE {: RESULT="double"; :} | CHAR {: RESULT="char"; :}
+ | BOOL {: RESULT="bool"; :} | STRING {: RESULT="string"; :}
+ | ID:i {: RESULT=i.toString(); :};
+declaracion ::= tipo:t nombres:n PUNTO_COMA {: RESULT=parser.regla("declaracion",t+" "+n); :}
+ | FINAL tipo:t ID:i OP_ASIG expresion:e PUNTO_COMA {: RESULT=parser.regla("constante",t+" "+i+" = "+e); :}
+ | FINAL tipo ID:i PUNTO_COMA:s {: parser.error_en("la constante debe inicializarse",sleft,sright,";"); RESULT="[ERROR]\n"; :};
+nombres ::= inicializacion:a {: RESULT=a; :}
+ | nombres:a COMA inicializacion:b {: RESULT=a+", "+b; :}
+ | nombres:a ID:i {: parser.error_en("falta ',' entre identificadores",ileft,iright,i); RESULT=a+" [ERROR] "+i; :}
+ | nombres:a COMA COMA:c inicializacion:b {: parser.error_en("coma duplicada",cleft,cright,","); RESULT=a+" [ERROR] "+b; :};
+inicializacion ::= ID:i {: RESULT=i.toString(); :}
+ | ID:i OP_ASIG expresion:e {: RESULT=i+" = "+e; :};
+metodo ::= VOID ID:i PAR_A PAR_C bloque:b {: RESULT=parser.regla("metodo "+i,b); System.out.println("Jerarquía del método "+i+":\n"+RESULT); :}
+ | tipo:t ID:i PAR_A PAR_C bloque:b {: RESULT=parser.regla("metodo "+t+" "+i,b); System.out.println("Jerarquía del método "+i+":\n"+RESULT); :};
+bloque ::= LLAVE_A sentencias:s LLAVE_C {: RESULT=parser.regla("bloque",s); :}
+ | LLAVE_A sentencias:s error LLAVE_C {: parser.recuperada("bloque hasta '}'"); RESULT=s+"[ERROR]\n"; :};
+sentencias ::= sentencias:a sentencia:b {: RESULT=a+b; :} | {: RESULT=""; :};
+sentencia ::= lectura:s {: RESULT=s; :} | escritura:s {: RESULT=s; :}
+ | actualizacion:s PUNTO_COMA {: RESULT=parser.regla("asignacion",s); :}
+ | declaracion:s {: RESULT=s; :} | seleccion:s {: RESULT=s; :}
+ | ciclo:s {: RESULT=s; :} | switch_stmt:s {: RESULT=s; :}
+ | bloque:s {: RESULT=s; :} | retorno:s {: RESULT=s; :}
+ | BREAK PUNTO_COMA {: RESULT=parser.regla("break",""); :}
+ | CONTINUE PUNTO_COMA {: RESULT=parser.regla("continue",""); :}
+ | PUNTO_COMA {: RESULT=parser.regla("sentencia_vacia",""); :}
+ | error PUNTO_COMA {: parser.recuperada("sentencia hasta ';'"); RESULT="[ERROR]\n"; :};
+retorno ::= RETURN expresion:e PUNTO_COMA {: RESULT=parser.regla("return",e); :}
+ | RETURN PUNTO_COMA {: RESULT=parser.regla("return",""); :};
+// Bloques obligatorios: subconjunto educativo que evita el dangling else.
+seleccion ::= cabecera_if:c bloque:b {: RESULT=parser.control("seleccion_simple",c+"\n"+b); :}
+ | cabecera_if:c bloque:b ELSE bloque:e {: RESULT=parser.control("seleccion_doble",c+"\n"+b+"else\n"+e); :}
+ | cabecera_if:c bloque:b ELSE seleccion:e {: RESULT=parser.control("seleccion_doble",c+"\n"+b+"else\n"+e); :};
+seleccion ::= IF error bloque:b {: parser.recuperada("cabecera de if hasta bloque; se esperaba '(' después de 'if'"); RESULT="[ERROR] if\n"+b; :};
+cabecera_if ::= IF PAR_A condicion:c PAR_C {: RESULT=c; :}
+ | IF PAR_A condicion:c {: parser.error_actual("se esperaba ')' en la condición de 'if'"); RESULT="[ERROR] "+c; :}
+ | IF PAR_A error PAR_C {: parser.recuperada("condición de if hasta ')'"); RESULT="[ERROR] condición"; :};
+cabecera_while ::= WHILE PAR_A condicion:c PAR_C {: RESULT=c; :}
+ | WHILE PAR_A condicion:c {: parser.error_actual("se esperaba ')' en la condición de 'while'"); RESULT="[ERROR] "+c; :}
+ | WHILE PAR_A error PAR_C {: parser.recuperada("condición de while hasta ')'"); RESULT="[ERROR] condición"; :};
+ciclo ::= cabecera_while:c bloque:b {: RESULT=parser.control("ciclo_mientras",c+"\n"+b); :}
+ | DO bloque:b WHILE PAR_A condicion:c PAR_C PUNTO_COMA {: RESULT=parser.control("ciclo_hacer_mientras",b+c); :}
+ | cabecera_for:c bloque:b {: RESULT=parser.control("ciclo_para",c+"\n"+b); :};
+cabecera_for ::= FOR PAR_A for_inicio:i PUNTO_COMA for_cond:c PUNTO_COMA for_act:a PAR_C {: RESULT="inicio: "+i+"; condición: "+c+"; actualización: "+a; :}
+ | FOR PAR_A for_inicio PUNTO_COMA for_cond PAR_C:p {: parser.error_en("falta el segundo ';' y la sección de actualización de 'for'",pleft,pright,")"); RESULT="[ERROR] for incompleto"; :}
+ | FOR PAR_A error PAR_C {: parser.recuperada("cabecera de for hasta ')'"); RESULT="[ERROR] for"; :};
+for_inicio ::= actualizacion:a {: RESULT=a; :} | tipo:t nombres:n {: RESULT=t+" "+n; :} | {: RESULT=""; :};
+for_cond ::= condicion:c {: RESULT=c; :} | {: RESULT=""; :};
+for_act ::= actualizacion:a {: RESULT=a; :} | {: RESULT=""; :};
+condicion ::= expresion:e {: RESULT=e; if(!e.contains("[ERROR]")) parser.regla("condicion",e); :};
+actualizacion ::= ID:i op_asig:o expresion:e {: RESULT=i+" "+o+" "+e; :}
+ | ID:i OP_INC {: RESULT=i+"++"; :} | ID:i OP_DEC {: RESULT=i+"--"; :}
+ | OP_INC ID:i {: RESULT="++"+i; :} | OP_DEC ID:i {: RESULT="--"+i; :};
+op_asig ::= OP_ASIG {: RESULT="="; :} | OP_ASIG_SUMA {: RESULT="+="; :}
+ | OP_ASIG_RESTA {: RESULT="-="; :} | OP_ASIG_MULT {: RESULT="*="; :} | OP_ASIG_DIV {: RESULT="/="; :};
+cabecera_switch ::= SWITCH PAR_A expresion:e PAR_C {: RESULT=e; :};
+switch_stmt ::= cabecera_switch:c LLAVE_A casos:s LLAVE_C {: RESULT=parser.control("seleccion_multiple",c+"\n"+s); :};
+casos ::= casos:a caso:b {: RESULT=a+b; :} | {: RESULT=""; :};
+caso ::= CASE expresion:e DOS_PUNTOS sentencias:s {: RESULT=parser.regla("case "+e,s); :}
+ | DEFAULT DOS_PUNTOS sentencias:s {: RESULT=parser.regla("default",s); :}
+ | CASE DOS_PUNTOS:d sentencias:s {: parser.error_en("se esperaba un valor después de 'case'",dleft,dright,":"); RESULT="[ERROR] case\n"+s; :};
+// Lectura y escritura: C++ más las funciones de las prácticas previas.
+lectura ::= LEER PAR_A ids_lectura:n PAR_C PUNTO_COMA {: RESULT=parser.regla("lectura",n); :}
+ | CIN ids_entrada:n PUNTO_COMA {: RESULT=parser.regla("lectura",n); :};
+ids_lectura ::= ID:i {: RESULT=i.toString(); :}
+ | ids_lectura:a COMA ID:i {: RESULT=a+", "+i; :}
+ | ids_lectura:a ID:i {: parser.error_en("falta ',' entre identificadores",ileft,iright,i); RESULT=a+" [ERROR] "+i; :}
+ | ids_lectura:a COMA COMA:c ID:i {: parser.error_en("coma duplicada",cleft,cright,","); RESULT=a+" [ERROR] "+i; :};
+ids_entrada ::= ENTRADA ID:i {: RESULT=i.toString(); :} | ids_entrada:a ENTRADA ID:i {: RESULT=a+", "+i; :};
+escritura ::= ESCRIBIR PAR_A elementos:e PAR_C PUNTO_COMA {: RESULT=parser.regla("escritura",e); :}
+ | COUT elems_salida:e PUNTO_COMA {: RESULT=parser.regla("escritura",e); :};
+elementos ::= expresion:e {: RESULT=e; :} | elementos:a COMA expresion:b {: RESULT=a+", "+b; :};
+elems_salida ::= SALIDA expresion:e {: RESULT=e; :} | elems_salida:a SALIDA expresion:b {: RESULT=a+", "+b; :};
+// Precedencia de C++ mediante niveles: ||, &&, == !=, relaciones, + -, * / %, unarios.
+expresion ::= log_or:e {: RESULT=e; :};
+log_or ::= log_or:a OP_OR log_and:b {: RESULT=parser.bin(a,"||",b,"expresion_logica"); :} | log_and:e {: RESULT=e; :};
+log_and ::= log_and:a OP_AND igualdad:b {: RESULT=parser.bin(a,"&&",b,"expresion_logica"); :} | igualdad:e {: RESULT=e; :};
+igualdad ::= igualdad:a OP_IGUAL relacion:b {: RESULT=parser.bin(a,"==",b,"expresion_relacional"); :}
+ | igualdad:a OP_DISTINTO relacion:b {: RESULT=parser.bin(a,"!=",b,"expresion_relacional"); :} | relacion:e {: RESULT=e; :};
+relacion ::= relacion:a OP_MENOR suma:b {: RESULT=parser.bin(a,"<",b,"expresion_relacional"); :}
+ | relacion:a OP_MAYOR suma:b {: RESULT=parser.bin(a,">",b,"expresion_relacional"); :}
+ | relacion:a OP_MENOR_IGUAL suma:b {: RESULT=parser.bin(a,"<=",b,"expresion_relacional"); :}
+ | relacion:a OP_MAYOR_IGUAL suma:b {: RESULT=parser.bin(a,">=",b,"expresion_relacional"); :} | suma:e {: RESULT=e; :};
+suma ::= suma:a OP_SUMA producto:b {: RESULT=parser.bin(a,"+",b,"expresion_aritmetica"); :}
+ | suma:a OP_RESTA producto:b {: RESULT=parser.bin(a,"-",b,"expresion_aritmetica"); :} | producto:e {: RESULT=e; :};
+producto ::= producto:a OP_MULT unario:b {: RESULT=parser.bin(a,"*",b,"expresion_aritmetica"); :}
+ | producto:a OP_DIV unario:b {: RESULT=parser.bin(a,"/",b,"expresion_aritmetica"); :}
+ | producto:a OP_MOD unario:b {: RESULT=parser.bin(a,"%",b,"expresion_aritmetica"); :} | unario:e {: RESULT=e; :};
+unario ::= OP_NOT unario:e {: RESULT="!"+e; parser.regla("expresion_logica",RESULT); :}
+ | OP_RESTA unario:e {: RESULT="-"+e; :} | OP_SUMA unario:e {: RESULT="+"+e; :} | primario:e {: RESULT=e; :};
+primario ::= ID:i {: RESULT=i.toString(); :} | valor:v {: RESULT=v; :}
+ | PAR_A expresion:e PAR_C {: RESULT="("+e+")"; :};
+valor ::= ENTERO:v {: RESULT=v.toString(); :} | FLOTANTE:v {: RESULT=v.toString(); :}
+ | CADENA:v {: RESULT=v.toString(); :} | CARACTER:v {: RESULT=v.toString(); :} | BOOLEANO:v {: RESULT=v.toString(); :};

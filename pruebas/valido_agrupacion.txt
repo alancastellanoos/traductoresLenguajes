@@ -1,0 +1,4 @@
+void proceso() {
+    if (((a+b)*2 >= c/3) && !(activo || falso)) { x=1; }
+    cout << "POSTERIOR";
+}

@@ -1,0 +1,4 @@
+void proceso() {
+    if (a>b) { mayor=a; } else { mayor=b; }
+    cout << "POSTERIOR";
+}

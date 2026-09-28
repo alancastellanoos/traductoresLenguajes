@@ -6,69 +6,80 @@
 /** CUP generated class containing symbol constants. */
 public class sym {
   /* terminals */
-  public static final int OP_MAYOR = 41;
-  public static final int CHAR = 12;
+  public static final int OP_MENOR = 40;
+  public static final int OP_DEC = 32;
+  public static final int BOOL = 13;
+  public static final int COUT = 71;
+  public static final int OP_MULT = 28;
+  public static final int OP_MOD = 30;
+  public static final int DIRECTIVA = 2;
   public static final int NAMESPACE = 20;
-  public static final int ENTERO = 22;
-  public static final int USING = 19;
+  public static final int ERROR_LEXICO = 57;
+  public static final int OP_SUMA = 26;
+  public static final int OP_RESTA = 27;
+  public static final int LEER = 63;
+  public static final int OP_DISTINTO = 39;
   public static final int DOUBLE = 11;
+  public static final int STRUCT = 16;
+  public static final int OP_DIV = 29;
+  public static final int PAR_C = 49;
+  public static final int PAR_A = 48;
+  public static final int FINAL = 60;
+  public static final int FLOAT = 10;
   public static final int DOS_PUNTOS = 56;
-  public static final int OP_NOT = 46;
-  public static final int OP_AND = 44;
-  public static final int PRIVATE = 18;
-  public static final int INT = 9;
+  public static final int PACKAGE = 58;
   public static final int LLAVE_C = 51;
   public static final int LLAVE_A = 50;
-  public static final int FOR = 6;
-  public static final int OP_INC = 31;
-  public static final int OP_DIV = 29;
-  public static final int OP_ASIG_MULT = 36;
-  public static final int CARACTER = 25;
-  public static final int BOOL = 13;
-  public static final int CLASS = 15;
-  public static final int DIRECTIVA = 2;
-  public static final int IF = 3;
-  public static final int PUNTO_COMA = 54;
-  public static final int ID = 21;
-  public static final int OP_MOD = 30;
-  public static final int EOF = 0;
-  public static final int RETURN = 8;
-  public static final int OP_ASIG_DIV = 37;
-  public static final int error = 1;
-  public static final int COMA = 55;
-  public static final int OP_MULT = 28;
-  public static final int CADENA = 24;
-  public static final int OP_OR = 45;
-  public static final int PAR_C = 49;
-  public static final int OP_RESTA = 27;
-  public static final int PAR_A = 48;
-  public static final int VOID = 14;
-  public static final int ERROR_LEXICO = 57;
-  public static final int OP_DISTINTO = 39;
-  public static final int OP_ASIG_SUMA = 34;
-  public static final int OP_MAYOR_IGUAL = 43;
-  public static final int ELSE = 4;
-  public static final int PUNTO = 59;
-  public static final int OP_IGUAL = 38;
-  public static final int PACKAGE = 58;
-  public static final int FINAL = 60;
-  public static final int WHILE = 5;
-  public static final int OP_DEC = 32;
-  public static final int FLOAT = 10;
-  public static final int PUBLIC = 17;
-  public static final int OP_MENOR_IGUAL = 42;
   public static final int BOOLEANO = 62;
-  public static final int STRING = 61;
-  public static final int OP_SUMA = 26;
-  public static final int OP_ASIG_RESTA = 35;
-  public static final int STRUCT = 16;
-  public static final int CORCH_C = 53;
-  public static final int OP_ACCESO = 47;
-  public static final int CORCH_A = 52;
-  public static final int FLOTANTE = 23;
-  public static final int DO = 7;
   public static final int OP_ASIG = 33;
-  public static final int OP_MENOR = 40;
+  public static final int PUNTO_COMA = 54;
+  public static final int OP_INC = 31;
+  public static final int CLASS = 15;
+  public static final int COMA = 55;
+  public static final int ENTERO = 22;
+  public static final int WHILE = 5;
+  public static final int CHAR = 12;
+  public static final int SWITCH = 65;
+  public static final int DO = 7;
+  public static final int FOR = 6;
+  public static final int OP_MAYOR = 41;
+  public static final int VOID = 14;
+  public static final int PUBLIC = 17;
+  public static final int RETURN = 8;
+  public static final int ELSE = 4;
+  public static final int BREAK = 68;
+  public static final int OP_ASIG_RESTA = 35;
+  public static final int INT = 9;
+  public static final int CIN = 70;
+  public static final int OP_ASIG_DIV = 37;
+  public static final int EOF = 0;
+  public static final int OP_AND = 44;
+  public static final int PUNTO = 59;
+  public static final int OP_ACCESO = 47;
+  public static final int DEFAULT = 67;
+  public static final int CORCH_C = 53;
+  public static final int CORCH_A = 52;
+  public static final int CARACTER = 25;
+  public static final int OP_ASIG_MULT = 36;
+  public static final int error = 1;
+  public static final int OP_MENOR_IGUAL = 42;
+  public static final int ENTRADA = 73;
+  public static final int CONTINUE = 69;
+  public static final int IF = 3;
+  public static final int OP_ASIG_SUMA = 34;
+  public static final int ID = 21;
+  public static final int OP_MAYOR_IGUAL = 43;
+  public static final int USING = 19;
+  public static final int FLOTANTE = 23;
+  public static final int CASE = 66;
+  public static final int CADENA = 24;
+  public static final int OP_IGUAL = 38;
+  public static final int STRING = 61;
+  public static final int ESCRIBIR = 64;
+  public static final int PRIVATE = 18;
+  public static final int OP_OR = 45;
+  public static final int SALIDA = 72;
+  public static final int OP_NOT = 46;
   public static final String[] terminalNames = new String[] {
   "EOF",
   "error",
@@ -132,7 +143,18 @@ public class sym {
   "PUNTO",
   "FINAL",
   "STRING",
-  "BOOLEANO"
+  "BOOLEANO",
+  "LEER",
+  "ESCRIBIR",
+  "SWITCH",
+  "CASE",
+  "DEFAULT",
+  "BREAK",
+  "CONTINUE",
+  "CIN",
+  "COUT",
+  "SALIDA",
+  "ENTRADA"
   };
 }
 

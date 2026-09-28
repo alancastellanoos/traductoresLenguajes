@@ -1,0 +1,17 @@
+void proceso() {
+    for (i = 0; i < 10; i = i + 1) {
+        if (i % 2 == 0) {
+            while (contador < 5) {
+                cout << i << contador;
+                contador = contador + 1;
+            }
+        } else { cout << "Numero impar"; }
+    }
+    if (activo) { if (edad >= 18) { cout << "Adulto activo"; } }
+    switch (opcion) {
+        case 1:
+            do { if (activo) { contador++; } } while (contador < 2);
+            break;
+        default: cout << "Fin";
+    }
+}

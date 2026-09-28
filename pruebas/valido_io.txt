@@ -1,0 +1,4 @@
+void proceso() {
+    cin >> a >> b; cout << "Total" << a+b; leer(a,b); escribir("Resultado",a+b);
+    cout << "POSTERIOR";
+}

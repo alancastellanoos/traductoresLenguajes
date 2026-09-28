@@ -16,14 +16,20 @@ import java_cup.runtime.Symbol;
 %cup
 %line
 %column
+%eofval{
+ return new Symbol(sym.EOF, yyline + 1, yycolumn + 1, "fin de archivo");
+%eofval}
 
 %{
+  public boolean mostrarTokens = false;
+  public int numErrores = 0;
   private Symbol token(int type) {
-    System.out.println("Linea " + (yyline + 1) + ", Columna " + (yycolumn + 1) + " -> Token: " + yytext() + " [ID: " + type + "]");
+    if (mostrarTokens) System.out.println("Linea " + (yyline + 1) + ", Columna " + (yycolumn + 1) + " -> Token: " + yytext() + " [ID: " + type + "]");
     return new Symbol(type, yyline + 1, yycolumn + 1, yytext());
   }
 
   private Symbol error(String descripcion) {
+    numErrores++;
     System.out.println(">>> ERROR LEXICO en Linea " + (yyline + 1) + ", Columna " + (yycolumn + 1) + ": " + descripcion + " ('" + yytext() + "')");
     return new Symbol(sym.ERROR_LEXICO, yyline + 1, yycolumn + 1, yytext());
   }
@@ -53,6 +59,20 @@ CadenaSinCerrar    = \"([^\"\\\n\r]|\\.)*
 "#"[a-zA-Z_]+[ \t]*[<\"].+[>\"}] { return token(sym.DIRECTIVA); }
 "#"[a-zA-Z_]+                      { return token(sym.DIRECTIVA); }
 
+"switch" { return token(sym.SWITCH); }
+"case" { return token(sym.CASE); }
+"default" { return token(sym.DEFAULT); }
+"break" { return token(sym.BREAK); }
+"continue" { return token(sym.CONTINUE); }
+"cin" { return token(sym.CIN); }
+"cout" { return token(sym.COUT); }
+"const" { return token(sym.FINAL); }
+"string" { return token(sym.STRING); }
+"<<" { return token(sym.SALIDA); }
+">>" { return token(sym.ENTRADA); }
+"*=" { return token(sym.OP_ASIG_MULT); }
+"/=" { return token(sym.OP_ASIG_DIV); }
+
 // Palabras reservadas
 "package"        { return token(sym.PACKAGE); }
 "if"             { return token(sym.IF); }
@@ -80,6 +100,10 @@ CadenaSinCerrar    = \"([^\"\\\n\r]|\\.)*
 "String"         { return token(sym.STRING); }
 "true"           { return token(sym.BOOLEANO); }
 "false"          { return token(sym.BOOLEANO); }
+
+// Práctica: sentencias de lectura y escritura
+"leer"           { return token(sym.LEER); }
+"escribir"       { return token(sym.ESCRIBIR); }
 
 // Operadores
 "::" | "->"      { return token(sym.OP_ACCESO); }

@@ -1,0 +1,4 @@
+void proceso() {
+    if ((edad>=18 && activo) || !admin) { x=(a+b)*c; }
+    cout << "POSTERIOR";
+}

@@ -1,0 +1,4 @@
+void proceso() {
+    for (i=0;i<10;i++) { if (activo) { while (j<5) { j++; } } else { x=0; } }
+    cout << "POSTERIOR";
+}

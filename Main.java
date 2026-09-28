@@ -1,56 +1,44 @@
-/*
- * INTEGRANTES:
- * 1. Cancelada de la O Gerardo Alexander
- * 2. Castellanos Hernandez Alan
- * 3. Lara Jimenez Pablo Cesar
- * 4. Medina Robledo Brandon Ernie
- */
+import java.io.*;
+import java.nio.charset.StandardCharsets;
 
-import java.io.FileReader;
-import java_cup.runtime.Symbol;
-
+/** Actividad 7. Analiza sintaxis; no ejecuta el programa C++. */
 public class Main {
+    private static void imprimirEncabezado() {
+        System.out.println("--------------------------------------------------------------------------------");
+        System.out.println("TRADUCTORES DE LENGUAJE - PRÁCTICA: ANALIZADOR LÉXICO Y SINTÁCTICO");
+        System.out.println("INTEGRANTES:");
+        System.out.println("1. Cancelada de la O Gerardo Alexander");
+        System.out.println("2. Castellanos Hernández Alan");
+        System.out.println("3. Lara Jiménez Pablo César");
+        System.out.println("4. Medina Robledo Brandon Ernie");
+        System.out.println("--------------------------------------------------------------------------------");
+    }
+
     public static void main(String[] args) {
-        System.out.println("--------------------------------------------------------------------------------");
-        System.out.println("TRADUCTORES DE LENGUAJE - PR\u00C1CTICA: ANALIZADOR L\u00C9XICO Y SINT\u00C1CTICO");
-        System.out.println("INTEGRANTES:");
-        System.out.println("1. Cancelada de la O Gerardo Alexander");
-        System.out.println("2. Castellanos Hernandez Alan");
-        System.out.println("3. Lara Jimenez Pablo Cesar");
-        System.out.println("4. Medina Robledo Brandon Ernie");
-        System.out.println("--------------------------------------------------------------------------------\n");
-
-        String archivoEntrada = (args.length > 0) ? args[0] : "act1_Traductores.txt";
-
-        try {
-            // 1. ANALISIS LEXICO
-            Lexer lexer = new Lexer(new FileReader(archivoEntrada));
-            Symbol s;
-
-            System.out.println("--- INICIO DEL AN\u00C1LISIS L\u00C9XICO ---");
-            while ((s = lexer.next_token()).sym != sym.EOF) {
-                // Escaneo y despliegue lexico realizado por las funciones token() y error() del Lexer
-            }
-            System.out.println("--- FIN DEL AN\u00C1LISIS L\u00C9XICO ---\n");
-
-            // 2. ANALISIS SINTACTICO
-            Lexer lexerSintactico = new Lexer(new FileReader(archivoEntrada));
-            Parser sintactico = new Parser(lexerSintactico);
-
-            System.out.println("--- INICIO DEL AN\u00C1LISIS SINT\u00C1CTICO ---");
-            sintactico.parse();
-            System.out.println("--- FIN DEL AN\u00C1LISIS SINT\u00C1CTICO ---\n");
-
-        } catch (Exception e) {
-            System.err.println("Error general en la ejecucion: " + e.getMessage());
+        // La terminal también debe usar UTF-8: en PowerShell, chcp 65001.
+        System.setOut(new PrintStream(System.out, true, StandardCharsets.UTF_8));
+        System.setErr(new PrintStream(System.err, true, StandardCharsets.UTF_8));
+        imprimirEncabezado();
+        if (args.length == 0) {
+            System.out.println("Uso: java -cp <classpath> Main archivo.txt [--tokens]");
+            System.exit(2);
         }
-
-        System.out.println("--------------------------------------------------------------------------------");
-        System.out.println("INTEGRANTES:");
-        System.out.println("1. Cancelada de la O Gerardo Alexander");
-        System.out.println("2. Castellanos Hernandez Alan");
-        System.out.println("3. Lara Jimenez Pablo Cesar");
-        System.out.println("4. Medina Robledo Brandon Ernie");
-        System.out.println("--------------------------------------------------------------------------------");
+        int codigo = 2;
+        try (Reader entrada = new InputStreamReader(new FileInputStream(args[0]), StandardCharsets.UTF_8)) {
+            Lexer lexer = new Lexer(entrada);
+            lexer.mostrarTokens = args.length > 1 && args[1].equals("--tokens");
+            Parser parser = new Parser(lexer);
+            System.out.println("ACTIVIDAD 7 - ESTRUCTURAS DE CONTROL C++\nArchivo: " + args[0]);
+            boolean completo = true;
+            try { parser.parse(); }
+            catch (Exception e) { completo = false; }
+            boolean valido = completo && parser.numErrores == 0 && lexer.numErrores == 0;
+            System.out.println("RESULTADO: " + (valido ? "VÁLIDO" : "INVÁLIDO")
+                + " | errores sintácticos: " + parser.numErrores
+                + " | errores léxicos: " + lexer.numErrores
+                + " | análisis " + (completo ? "completo" : "detenido"));
+            codigo = valido ? 0 : 1;
+        } catch (IOException e) { System.err.println("No se pudo leer el archivo: " + e.getMessage()); }
+        System.exit(codigo);
     }
 }
